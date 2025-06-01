@@ -65,6 +65,71 @@ let betSyncInterval = null;
 let userBet = { side: null, amount: 0 };
 let tx_locked = false;
 
+// ========== ĐĂNG NHẬP ===============
+document.getElementById('loginBtn').addEventListener('click', async () => {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const captcha = document.getElementById('captcha').value?.trim().toUpperCase();
+    const captchaCode = document.getElementById('captchaDisplay').textContent?.trim().toUpperCase();
+
+    if (!username || !password || !captcha) {
+        showCustomAlert('Vui lòng điền đầy đủ thông tin đăng nhập!');
+        return;
+    }
+    if (captcha !== captchaCode) {
+        showCustomAlert('Mã captcha chưa đúng!');
+        generateCaptcha();
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_USER}?username=${encodeURIComponent(username)}`);
+        if (!res.ok) {
+            showCustomAlert('Tài khoản không tồn tại!');
+            return;
+        }
+        const user = await res.json();
+        if (user.passwordHash !== hashString(password)) {
+            showCustomAlert('Mật khẩu không đúng!');
+            return;
+        }
+
+        // ==== CẬP NHẬT IP ĐĂNG NHẬP ====
+        let ip = "";
+        try {
+            const ipres = await fetch("https://api.ipify.org?format=json");
+            const ipjson = await ipres.json();
+            ip = ipjson.ip || "";
+        } catch (e) {
+            ip = "";
+        }
+        try {
+            await fetch(API_USER, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, ip })
+            });
+        } catch (e) {}
+
+        localStorage.setItem('current_user', username);
+        localStorage.setItem('is_admin', ADMIN_USERNAMES.includes(username) ? '1' : '');
+
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+
+        await loadUserInfo(username);
+        if (ADMIN_USERNAMES.includes(username)) {
+            showAdminPanel();
+        }
+        startGame();
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
+        document.getElementById('captcha').value = '';
+    } catch (e) {
+        showCustomAlert('Lỗi đăng nhập, thử lại sau!');
+    }
+});
+
 // ========== GAME FUNCTIONS (TÀI/XỈU) ===============
 
 // Lấy tổng cược hiện tại
