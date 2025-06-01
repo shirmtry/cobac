@@ -1,40 +1,56 @@
-// API route: /api/bet (add bet, get bets, clear bets, etc)
-import { getSheetsClient } from './googleSheet';
+import { getSheetsClient } from '../../utils/sheets';
 const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
 const BET_SHEET = 'bets';
 
 export default async function handler(req, res) {
+  if (!SPREADSHEET_ID) {
+    return res.status(500).json({ error: 'Missing GOOGLE_SHEET_ID env' });
+  }
   const sheets = await getSheetsClient();
+
   if (req.method === 'POST') {
-    // Add a bet
-    const { username, side, amount } = req.body;
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: BET_SHEET,
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: [[Date.now(), username, side, amount]]
+    try {
+      const { username, side, amount } = req.body;
+      if (!username || !side || !amount) {
+        return res.status(400).json({ error: 'Missing required fields' });
       }
-    });
-    return res.json({ success: true });
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: BET_SHEET,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [[Date.now(), username, side, amount]]
+        }
+      });
+      return res.status(201).json({ success: true });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
   }
   if (req.method === 'GET') {
-    // Get all bets
-    const rows = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${BET_SHEET}!A2:Z`,
-    });
-    return res.json({ bets: rows.data.values });
+    try {
+      const rows = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${BET_SHEET}!A2:Z`,
+      });
+      return res.json({ bets: rows.data.values || [] });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
   }
   if (req.method === 'DELETE') {
-    // Clear all bets: overwrite with header only
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range: BET_SHEET,
-      valueInputOption: 'RAW',
-      requestBody: { values: [['timestamp','username','side','amount']] }
-    });
-    return res.json({ success: true });
+    try {
+      // Update header row (nếu sheet header khác thì sửa lại)
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: BET_SHEET,
+        valueInputOption: 'RAW',
+        requestBody: { values: [['timestamp','username','side','amount']] }
+      });
+      return res.status(200).json({ success: true });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
   }
   res.status(405).end();
 }
