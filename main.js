@@ -121,10 +121,16 @@ document.getElementById('registerBtn').addEventListener('click', async () => {
         });
         const data = await response.json();
         if (response.ok && data.success) {
-            showCustomAlert('Đăng ký thành công, bạn có thể đăng nhập ngay!');
-            document.getElementById("loginForm").style.display = "block";
+            showCustomAlert('Đăng ký thành công, bạn đã được đăng nhập!');
+            // Đăng nhập luôn
+            localStorage.setItem('current_user', username);
+            localStorage.setItem('is_admin', ADMIN_USERNAMES.includes(username) ? '1' : '');
             document.getElementById("registerForm").style.display = "none";
-            generateCaptcha();
+            document.getElementById("mainContent").style.display = "block";
+            await loadUserInfo(username);
+            if (ADMIN_USERNAMES.includes(username)) showAdminPanel();
+            startGame();
+            // Reset form
             document.getElementById('reg_username').value = '';
             document.getElementById('reg_password').value = '';
             document.getElementById('reg_password2').value = '';
@@ -610,5 +616,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// ====== PLACEHOLDER: YOU NEED showCustomAlert, loadUserInfo, showAdminPanel ======
-// Add your implementation of showCustomAlert, loadUserInfo, showAdminPanel below if needed!
+// ====== BỔ SUNG HÀM showCustomAlert, loadUserInfo, showAdminPanel ======
+// Hàm hiển thị thông báo
+function showCustomAlert(msg) {
+    alert(msg); // Bạn có thể thay thế bằng modal đẹp hơn nếu muốn
+}
+
+// Hàm load thông tin user và cập nhật UI
+async function loadUserInfo(username) {
+    document.getElementById("userNameDisplay").textContent = username;
+    try {
+        const res = await fetch(`${API_USER}?username=${encodeURIComponent(username)}`);
+        if (res.ok) {
+            const user = await res.json();
+            document.getElementById("userBalance").textContent = (user.balance || 0).toLocaleString();
+        }
+    } catch (e) {
+        document.getElementById("userBalance").textContent = "0";
+    }
+}
+
+// Hàm hiển thị panel admin nếu user là admin
+function showAdminPanel() {
+    document.getElementById("adminPanel").style.display = "block";
+}
