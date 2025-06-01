@@ -65,7 +65,79 @@ let betSyncInterval = null;
 let userBet = { side: null, amount: 0 };
 let tx_locked = false;
 
-// ========== ĐĂNG NHẬP ===============
+// ========== ĐĂNG KÝ ==========
+document.getElementById('registerBtn').addEventListener('click', async () => {
+    const username = document.getElementById('reg_username').value.trim();
+    const password = document.getElementById('reg_password').value;
+    const password2 = document.getElementById('reg_password2').value;
+    const captcha = document.getElementById('reg_captcha').value?.trim().toUpperCase();
+    const captchaCode = document.getElementById('reg_captchaDisplay').textContent?.trim().toUpperCase();
+
+    if (!username || !password || !password2 || !captcha) {
+        showCustomAlert('Vui lòng nhập đầy đủ thông tin.');
+        return;
+    }
+    if (password !== password2) {
+        showCustomAlert('Mật khẩu nhập lại chưa khớp!');
+        return;
+    }
+    if (captcha !== captchaCode) {
+        showCustomAlert('Mã captcha chưa đúng!');
+        generateCaptcha('reg_');
+        return;
+    }
+
+    // Kiểm tra user đã tồn tại chưa
+    try {
+        const check = await fetch(`${API_USER}?username=${encodeURIComponent(username)}`);
+        if (check.ok) {
+            const user = await check.json();
+            if (user && user.username) {
+                showCustomAlert('Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác!');
+                return;
+            }
+        }
+    } catch (e) {}
+
+    // Lấy IP đăng ký (tùy chọn)
+    let ip = "";
+    try {
+        const ipres = await fetch("https://api.ipify.org?format=json");
+        const ipjson = await ipres.json();
+        ip = ipjson.ip || "";
+    } catch (e) {
+        ip = "";
+    }
+
+    try {
+        const response = await fetch(API_USER, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username,
+                passwordHash: hashString(password),
+                ip
+            })
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+            showCustomAlert('Đăng ký thành công, bạn có thể đăng nhập ngay!');
+            document.getElementById("loginForm").style.display = "block";
+            document.getElementById("registerForm").style.display = "none";
+            generateCaptcha();
+            document.getElementById('reg_username').value = '';
+            document.getElementById('reg_password').value = '';
+            document.getElementById('reg_password2').value = '';
+            document.getElementById('reg_captcha').value = '';
+        } else {
+            showCustomAlert(data.error || 'Lỗi đăng ký, thử lại sau!');
+        }
+    } catch (e) {
+        showCustomAlert('Lỗi kết nối, thử lại sau!');
+    }
+});
+
+// ========== ĐĂNG NHẬP ==========
 document.getElementById('loginBtn').addEventListener('click', async () => {
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
@@ -537,3 +609,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('mainContent').style.display = 'none';
     }
 });
+
+// ====== PLACEHOLDER: YOU NEED showCustomAlert, loadUserInfo, showAdminPanel ======
+// Add your implementation of showCustomAlert, loadUserInfo, showAdminPanel below if needed!
